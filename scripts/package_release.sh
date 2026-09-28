@@ -10,7 +10,7 @@ swift test
 echo "===> 1. Building release binary (arm64)..."
 swift build -c release
 
-RELEASE_BIN="$DIR/.build/arm64-apple-macosx/release/TailScreensApp"
+RELEASE_BIN="$DIR/.build/arm64-apple-macosx/release/AetherScreensApp"
 if [ ! -f "$RELEASE_BIN" ]; then
     echo "Error: Release binary not found at $RELEASE_BIN"
     exit 1
@@ -31,13 +31,13 @@ sips -z 1024 1024 AppIcon_1024.png --out AppIcon.iconset/icon_512x512@2x.png > /
 iconutil -c icns AppIcon.iconset -o AppIcon.icns
 rm -rf AppIcon.iconset
 
-echo "===> 3. Assembling TailScreens.app bundle..."
-APP_DIR="$DIR/build/release/TailScreens.app"
+echo "===> 3. Assembling AetherScreens.app bundle..."
+APP_DIR="$DIR/build/release/AetherScreens.app"
 rm -rf "$APP_DIR"
 mkdir -p "$APP_DIR/Contents/MacOS"
 mkdir -p "$APP_DIR/Contents/Resources"
 
-cp "$RELEASE_BIN" "$APP_DIR/Contents/MacOS/TailScreens"
+cp "$RELEASE_BIN" "$APP_DIR/Contents/MacOS/AetherScreens"
 cp AppIcon.icns "$APP_DIR/Contents/Resources/AppIcon.icns"
 
 cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
@@ -48,15 +48,15 @@ cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>TailScreens</string>
+    <string>AetherScreens</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.chenpingan.TailScreens</string>
+    <string>com.aethernative.aetherscreens</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>TailScreens</string>
+    <string>AetherScreens</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -72,7 +72,7 @@ cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSLocalNetworkUsageDescription</key>
-    <string>TailScreens uses Bonjour to automatically discover nearby Macs with Screen Sharing enabled on your local network.</string>
+    <string>AetherScreens uses Bonjour to automatically discover nearby Macs with Screen Sharing enabled on your local network.</string>
     <key>NSBonjourServices</key>
     <array>
         <string>_rfb._tcp</string>
@@ -82,7 +82,7 @@ cat << 'EOF' > "$APP_DIR/Contents/Info.plist"
 </plist>
 EOF
 
-cat << 'EOF' > "$APP_DIR/Contents/MacOS/TailScreens.entitlements"
+cat << 'EOF' > "$APP_DIR/Contents/MacOS/AetherScreens.entitlements"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -97,11 +97,11 @@ cat << 'EOF' > "$APP_DIR/Contents/MacOS/TailScreens.entitlements"
 </plist>
 EOF
 
-echo "===> 4. Signing TailScreens.app with Developer ID Application..."
+echo "===> 4. Signing AetherScreens.app with Developer ID Application..."
 SIGNING_IDENTITY="Developer ID Application: YanNan Chen (5984KQD4D7)"
 
 codesign --force --options runtime --timestamp \
-    --entitlements "$APP_DIR/Contents/MacOS/TailScreens.entitlements" \
+    --entitlements "$APP_DIR/Contents/MacOS/AetherScreens.entitlements" \
     --sign "$SIGNING_IDENTITY" \
     --deep "$APP_DIR"
 
@@ -110,14 +110,14 @@ codesign -vvv --deep --strict "$APP_DIR"
 
 echo "===> 6. Packaging distributable Zip..."
 cd "$DIR/build/release"
-rm -f "TailScreens-macOS-AppleSilicon-v1.0.0.zip"
-zip -r -q "TailScreens-macOS-AppleSilicon-v1.0.0.zip" "TailScreens.app"
+rm -f "AetherScreens-macOS-AppleSilicon-v1.0.0.zip"
+zip -r -q "AetherScreens-macOS-AppleSilicon-v1.0.0.zip" "AetherScreens.app"
 
-echo "===> 7. Installing to /Applications/TailScreens.app..."
-rm -rf /Applications/TailScreens.app
-cp -R "$APP_DIR" /Applications/TailScreens.app
-codesign -vvv --deep --strict /Applications/TailScreens.app
+echo "===> 7. Installing to /Applications/AetherScreens.app..."
+rm -rf /Applications/AetherScreens.app
+cp -R "$APP_DIR" /Applications/AetherScreens.app
+codesign -vvv --deep --strict /Applications/AetherScreens.app
 
 echo "===> Formal Release Build, Testing, Signing & Installation Complete!"
-echo "App Bundle: /Applications/TailScreens.app"
-echo "Distributable Zip: $DIR/build/release/TailScreens-macOS-AppleSilicon-v1.0.0.zip"
+echo "App Bundle: /Applications/AetherScreens.app"
+echo "Distributable Zip: $DIR/build/release/AetherScreens-macOS-AppleSilicon-v1.0.0.zip"

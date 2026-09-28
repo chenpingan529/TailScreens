@@ -1,4 +1,4 @@
-# TailScreens 📱🖥️
+# AetherScreens 📱🖥️
 
 > **像 Screens 一样优雅地在 iPhone / iPad 与 Apple Silicon Mac 上通过 Tailscale 与局域网远程控制你的 Mac。**
 > 
@@ -52,7 +52,7 @@
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                   TailScreens (iOS & Apple Silicon Mac)                │
+│                   AetherScreens (iOS & Apple Silicon Mac)                │
 ├────────────────────┬───────────────────────────────────────────────────┤
 │ UI 表现层          │ DeviceListView (macOS 三栏 / iOS 响应式 / Bonjour 发现)│
 │                    │ RemoteDesktopView (双端视口渲染 / 双击缩放 / 悬停)   │
@@ -89,15 +89,15 @@
 ### 1. 运行 macOS 原生桌面端
 ```bash
 # 编译并直接启动 macOS 原生 App
-swift run TailScreensApp
+swift run AetherScreensApp
 ```
 
 ### 2. 运行 iPhone / iPad App
 ```bash
 xcodegen generate --spec ios/project.yml --project ios
-open ios/TailScreensIOS.xcodeproj
+open ios/AetherScreensIOS.xcodeproj
 ```
-在 Xcode 中选择 `TailScreensIOS` scheme 和 iPhone 模拟器或已签名的真机。`ios/project.yml` 会生成含启动画面和局域网权限声明的 iOS App target。
+在 Xcode 中选择 `AetherScreensIOS` scheme 和 iPhone 模拟器或已签名的真机。`ios/project.yml` 会生成含启动画面和局域网权限声明的 iOS App target。
 
 ### 3. 编译所有模块
 ```bash
@@ -107,7 +107,7 @@ swift build
 ### 4. 运行自动化测试
 ```bash
 swift test
-# iPhone 模拟器 UI 测试：选择 TailScreensIOS scheme 后在 Xcode 中运行 Test
+# iPhone 模拟器 UI 测试：选择 AetherScreensIOS scheme 后在 Xcode 中运行 Test
 ```
 
 真实 Tailscale 首帧测试依赖可用的远端屏幕共享服务，不能用模拟服务器通过来代替。
@@ -133,6 +133,18 @@ swift test
 | `MacKeyMapTests` | ASCII 映射与全部 Mac 系统快捷键键序闭环 | ✅ Passed |
 | `TailscaleModelsTests`| Tailscale REST API 数据解析、IPv4 过滤提取、Mac 识别 | ✅ Passed |
 | `DeviceStoreTests` | 本地存储管理、Keychain 安全存储、Tailnet 节点状态合并 | ✅ Passed |
+
+---
+
+## 🌐 官网与发布
+
+- 官网条目：`website_content/apps/aetherscreens/`，是 [aethernative.com](https://aethernative.com/apps/aetherscreens/) 页面的源文件。修改后运行 `./scripts/sync_to_website.sh` 复制到本地的 `aethernative-site` 仓库，再在那边提交。
+- 发布 GitHub Release 时，`.github/workflows/aethernative-sync.yml` 会通知官网自动同步版本（需要仓库 Secret `AETHERNATIVE_SITE_TOKEN`）。
+- Bundle ID：macOS `com.aethernative.aetherscreens`，iOS `com.aethernative.aetherscreens.ios`。
+
+## 🔁 从 TailScreens 迁移
+
+项目原名 TailScreens。首次启动时会自动把旧版的设备列表（旧偏好域 `com.chenpingan.TailScreens`）复制过来，旧数据保留不动；已保存的密码在第一次使用时从旧的钥匙串条目 `com.tailscreens.credentials` 迁移到新条目。
 
 ---
 

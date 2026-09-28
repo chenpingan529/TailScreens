@@ -1,23 +1,23 @@
-name: TailScreensIOS
+name: AetherScreensIOS
 options:
-  bundleIdPrefix: dev.chenxu
+  bundleIdPrefix: com.aethernative
 packages:
-  TailScreens:
+  AetherScreens:
     path: ..
 targets:
-  TailScreensIOS:
+  AetherScreensIOS:
     type: application
     platform: iOS
     deploymentTarget: '17.0'
     sources:
-      - TailScreensIOSApp.swift
+      - AetherScreensIOSApp.swift
     dependencies:
-      - package: TailScreens
-        product: TailScreensCore
+      - package: AetherScreens
+        product: AetherScreensCore
     info:
       path: Info.plist
       properties:
-        CFBundleDisplayName: TailScreens
+        CFBundleDisplayName: AetherScreens
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -34,18 +34,18 @@ targets:
           - _apple-sas._tcp
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.chenxu.tailscreens.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.aethernative.aetherscreens.ios
         TARGETED_DEVICE_FAMILY: '1,2'
         SWIFT_VERSION: '5.9'
-  TailScreensIOSUITests:
+  AetherScreensIOSUITests:
     type: bundle.ui-testing
     platform: iOS
     deploymentTarget: '17.0'
     sources:
       - UITests
     dependencies:
-      - target: TailScreensIOS
+      - target: AetherScreensIOS
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.chenxu.tailscreens.ios.uitests
+        PRODUCT_BUNDLE_IDENTIFIER: com.aethernative.aetherscreens.ios.uitests
         SWIFT_VERSION: '5.9'

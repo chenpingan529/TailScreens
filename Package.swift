@@ -2,19 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "TailScreens",
+    name: "AetherScreens",
     platforms: [
         .iOS(.v17),
         .macOS(.v14)
     ],
     products: [
         .library(
-            name: "TailScreensCore",
-            targets: ["TailScreensCore"]
+            name: "AetherScreensCore",
+            targets: ["AetherScreensCore"]
         ),
         .executable(
-            name: "TailScreensApp",
-            targets: ["TailScreensApp"]
+            name: "AetherScreensApp",
+            targets: ["AetherScreensApp"]
         )
     ],
     dependencies: [
@@ -22,19 +22,19 @@ let package = Package(
     ],
     targets: [
         .target(
-            name: "TailScreensCore",
+            name: "AetherScreensCore",
             dependencies: [],
-            path: "Sources/TailScreensCore"
+            path: "Sources/AetherScreensCore"
         ),
         .executableTarget(
-            name: "TailScreensApp",
-            dependencies: ["TailScreensCore"],
-            path: "Sources/TailScreensApp"
+            name: "AetherScreensApp",
+            dependencies: ["AetherScreensCore"],
+            path: "Sources/AetherScreensApp"
         ),
         .testTarget(
-            name: "TailScreensCoreTests",
-            dependencies: ["TailScreensCore"],
-            path: "Tests/TailScreensCoreTests"
+            name: "AetherScreensCoreTests",
+            dependencies: ["AetherScreensCore"],
+            path: "Tests/AetherScreensCoreTests"
         )
     ]
 )
