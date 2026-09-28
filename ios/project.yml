@@ -1,0 +1,51 @@
+name: TailScreensIOS
+options:
+  bundleIdPrefix: dev.chenxu
+packages:
+  TailScreens:
+    path: ..
+targets:
+  TailScreensIOS:
+    type: application
+    platform: iOS
+    deploymentTarget: '17.0'
+    sources:
+      - TailScreensIOSApp.swift
+    dependencies:
+      - package: TailScreens
+        product: TailScreensCore
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: TailScreens
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        NSLocalNetworkUsageDescription: 'Discover nearby computers for remote screen sharing.'
+        NSBonjourServices:
+          - _rfb._tcp
+          - _apple-sas._tcp
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.chenxu.tailscreens.ios
+        TARGETED_DEVICE_FAMILY: '1,2'
+        SWIFT_VERSION: '5.9'
+  TailScreensIOSUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: '17.0'
+    sources:
+      - UITests
+    dependencies:
+      - target: TailScreensIOS
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.chenxu.tailscreens.ios.uitests
+        SWIFT_VERSION: '5.9'

@@ -134,6 +134,15 @@ public final class Framebuffer: @unchecked Sendable {
         )
     }
 
+    /// Gives the renderer a consistent pixel buffer while remote updates are paused.
+    func withPixelBytes(_ body: (UnsafeRawBufferPointer, Int, Int) -> Void) {
+        lock.lock()
+        defer { lock.unlock() }
+        pixels.withUnsafeBytes { bytes in
+            body(bytes, width, height)
+        }
+    }
+
     #if canImport(UIKit)
     public func makeUIImage() -> UIImage? {
         guard let cg = makeCGImage() else { return nil }

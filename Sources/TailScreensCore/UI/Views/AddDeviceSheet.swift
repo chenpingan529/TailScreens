@@ -10,6 +10,7 @@ public struct AddDeviceSheet: View {
     @State private var portString: String = "5900"
     @State private var deviceType: RemoteDevice.DeviceType = .mac
     @State private var password: String = ""
+    @State private var macAddress: String = ""
 
     public init(viewModel: DeviceListViewModel) {
         self.viewModel = viewModel
@@ -45,6 +46,14 @@ public struct AddDeviceSheet: View {
                 ) {
                     SecureField("VNC Password (Optional)", text: $password)
                 }
+
+                Section(
+                    header: Text("Wake-on-LAN (Optional)"),
+                    footer: Text("Enter the remote Mac's hardware MAC address (e.g. AA:BB:CC:DD:EE:FF) to wake it when sleeping.")
+                ) {
+                    TextField("MAC Address (Optional)", text: $macAddress)
+                        .autocorrectionDisabled()
+                }
             }
             .navigationTitle("Add Computer")
             #if canImport(UIKit)
@@ -66,7 +75,8 @@ public struct AddDeviceSheet: View {
                             host: host,
                             port: port,
                             type: deviceType,
-                            password: password.isEmpty ? nil : password
+                            password: password.isEmpty ? nil : password,
+                            macAddress: macAddress.isEmpty ? nil : macAddress
                         )
                         dismiss()
                     }
@@ -74,5 +84,8 @@ public struct AddDeviceSheet: View {
                 }
             }
         }
+        #if os(macOS)
+        .frame(minWidth: 480, minHeight: 500)
+        #endif
     }
 }

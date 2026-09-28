@@ -98,6 +98,24 @@ public final class DeviceStore: @unchecked Sendable {
         return keychain.loadPassword(forKey: device.id.uuidString)
     }
 
+    /// Check if a saved password exists for this device.
+    public func hasPassword(for device: RemoteDevice) -> Bool {
+        guard let pwd = getPassword(for: device) else { return false }
+        return !pwd.isEmpty
+    }
+
+    /// Update or save password for an existing device.
+    public func updatePassword(_ password: String, for device: RemoteDevice) {
+        keychain.savePassword(password, forKey: device.id.uuidString)
+        AppLogger.shared.info("Updated password in Keychain for device '\(device.name)' (\(device.id.uuidString))", category: "Auth")
+    }
+
+    /// Remove password from Keychain for a device.
+    public func clearPassword(for device: RemoteDevice) {
+        keychain.deletePassword(forKey: device.id.uuidString)
+        AppLogger.shared.info("Cleared password in Keychain for device '\(device.name)'", category: "Auth")
+    }
+
     /// Record connection timestamp.
     public func recordConnection(for device: RemoteDevice) {
         lock.lock()

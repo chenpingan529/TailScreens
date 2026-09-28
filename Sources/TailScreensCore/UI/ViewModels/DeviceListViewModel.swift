@@ -2,37 +2,60 @@ import Foundation
 import SwiftUI
 import Combine
 
-/// ViewModel managing the device library, Tailnet discovery, and active sessions.
+/// ViewModel managing the device library, Bonjour nearby discovery, Tailnet discovery, and active sessions.
 @MainActor
 public final class DeviceListViewModel: ObservableObject {
     @Published public var devices: [RemoteDevice] = []
+    @Published public var discoveredNearbyMacs: [DiscoveredMac] = []
+    @Published public var isSearchingBonjour: Bool = false
     @Published public var searchText: String = ""
     @Published public var isSyncingTailscale: Bool = false
     @Published public var tailscaleApiKey: String = ""
     @Published public var tailnetName: String = ""
     @Published public var activeSessionDevice: RemoteDevice?
     @Published public var errorMessage: String?
+    @Published public var statusNotice: String?
 
     private let store: DeviceStore
+    private let bonjourService: BonjourDiscoveryService
+    private var cancellables = Set<AnyCancellable>()
 
-    public init(store: DeviceStore = .shared) {
+    public init(store: DeviceStore = .shared, bonjourService: BonjourDiscoveryService = .shared) {
         self.store = store
+        self.bonjourService = bonjourService
         self.devices = store.devices
-        
-        // Seed default demo / local Mac if store is empty
-        if self.devices.isEmpty {
-            let defaultMac = RemoteDevice(
-                name: "My Mac (Screen Sharing)",
-                host: "100.80.1.50",
+
+        // Seed default 100.64.0.3 Tailscale Mac if not present
+        if !self.devices.contains(where: { $0.host == "100.64.0.3" }) {
+            let tailscaleMac = RemoteDevice(
+                name: "Tailscale Mac (100.64.0.3)",
+                host: "100.64.0.3",
                 port: RFBConstants.defaultPort,
                 deviceType: .mac,
                 authMethod: .vncPassword,
                 isOnline: true,
                 isTailscaleNode: true
             )
-            store.addDevice(defaultMac)
+            store.addDevice(tailscaleMac)
             self.devices = store.devices
         }
+
+        setupBonjourBindings()
+    }
+
+    private func setupBonjourBindings() {
+        bonjourService.$discoveredMacs
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.discoveredNearbyMacs, on: self)
+            .store(in: &cancellables)
+
+        bonjourService.$isSearching
+            .receive(on: DispatchQueue.main)
+            .assign(to: \.isSearchingBonjour, on: self)
+            .store(in: &cancellables)
+
+        // Start local network discovery
+        bonjourService.startDiscovery()
     }
 
     public var filteredDevices: [RemoteDevice] {
@@ -52,23 +75,57 @@ public final class DeviceListViewModel: ObservableObject {
     }
 
     /// Add a new device manually
-    public func addDevice(name: String, host: String, port: UInt16, type: RemoteDevice.DeviceType, password: String?) {
+    public func addDevice(
+        name: String,
+        host: String,
+        port: UInt16,
+        type: RemoteDevice.DeviceType,
+        password: String?,
+        macAddress: String? = nil
+    ) {
         let dev = RemoteDevice(
             name: name,
             host: host,
             port: port,
             deviceType: type,
             authMethod: password == nil ? .none : .vncPassword,
-            isOnline: true
+            isOnline: true,
+            macAddress: macAddress
         )
         store.addDevice(dev, password: password)
         reload()
+    }
+
+    /// Connect directly to a discovered Bonjour Mac
+    public func addDiscoveredMac(_ mac: DiscoveredMac, password: String? = nil) {
+        let dev = mac.toRemoteDevice()
+        store.addDevice(dev, password: password)
+        reload()
+        connect(to: dev)
     }
 
     /// Delete a device
     public func deleteDevice(_ device: RemoteDevice) {
         store.deleteDevice(device)
         reload()
+    }
+
+    /// Wake a sleeping Mac via Wake-on-LAN Magic Packet
+    public func wakeDevice(_ device: RemoteDevice) {
+        guard let mac = device.macAddress, !mac.isEmpty else {
+            errorMessage = "No MAC address configured for this Mac."
+            return
+        }
+
+        WakeOnLANService.wakeDevice(macAddress: mac) { [weak self] success in
+            Task { @MainActor in
+                if success {
+                    self?.statusNotice = "Wake-on-LAN Magic Packet sent to \(device.name)"
+                } else {
+                    self?.errorMessage = "Failed to send Wake-on-LAN packet. Check MAC format."
+                }
+            }
+        }
     }
 
     /// Sync online devices from Tailscale API
@@ -86,6 +143,7 @@ public final class DeviceListViewModel: ObservableObject {
             let nodes = try await client.fetchDevices()
             store.mergeTailscaleDevices(nodes)
             reload()
+            statusNotice = "Synced \(nodes.count) nodes from Tailscale"
         } catch {
             errorMessage = error.localizedDescription
         }

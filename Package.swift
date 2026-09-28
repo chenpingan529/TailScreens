@@ -11,6 +11,10 @@ let package = Package(
         .library(
             name: "TailScreensCore",
             targets: ["TailScreensCore"]
+        ),
+        .executable(
+            name: "TailScreensApp",
+            targets: ["TailScreensApp"]
         )
     ],
     dependencies: [
@@ -21,6 +25,11 @@ let package = Package(
             name: "TailScreensCore",
             dependencies: [],
             path: "Sources/TailScreensCore"
+        ),
+        .executableTarget(
+            name: "TailScreensApp",
+            dependencies: ["TailScreensCore"],
+            path: "Sources/TailScreensApp"
         ),
         .testTarget(
             name: "TailScreensCoreTests",

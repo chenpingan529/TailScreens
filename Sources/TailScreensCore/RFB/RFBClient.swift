@@ -16,7 +16,7 @@ public final class RFBClient: @unchecked Sendable {
 
     public let host: String
     public let port: UInt16
-    public let password: String?
+    public var password: String?
     public let framebuffer: Framebuffer
 
     public private(set) var state: State = .disconnected {
@@ -29,10 +29,13 @@ public final class RFBClient: @unchecked Sendable {
     public var onStateChanged: (@Sendable (State) -> Void)?
     public var onFrameUpdated: (@Sendable () -> Void)?
     public var onClipboardReceived: (@Sendable (String) -> Void)?
+    public var onRequestPassword: (@Sendable (@escaping @Sendable (String?) -> Void) -> Void)?
+    public var onDownloadProgress: (@Sendable (Double, Double) -> Void)?
 
     private var connection: NWConnection?
     private let queue = DispatchQueue(label: "com.tailscreens.rfbclient", qos: .userInteractive)
     private var readBuffer = Data()
+    private let zlibDecompressor = ZlibDecompressor()
 
     public init(
         host: String,
@@ -56,6 +59,8 @@ public final class RFBClient: @unchecked Sendable {
         }
 
         state = .connecting
+        AppLogger.shared.info("Initiating connection to \(host):\(port)...", category: "Network")
+
         let nwHost = NWEndpoint.Host(host)
         let nwPort = NWEndpoint.Port(rawValue: port)!
 
@@ -70,10 +75,13 @@ public final class RFBClient: @unchecked Sendable {
             guard let self = self else { return }
             switch connState {
             case .ready:
+                AppLogger.shared.info("TCP socket established with \(self.host):\(self.port)", category: "Network")
                 self.startHandshake()
             case .failed(let error):
+                AppLogger.shared.error("TCP connection failed: \(error.localizedDescription)", category: "Network")
                 self.handleFailure("Connection failed: \(error.localizedDescription)")
             case .cancelled:
+                AppLogger.shared.info("TCP socket cancelled", category: "Network")
                 self.state = .disconnected
             default:
                 break
@@ -85,6 +93,7 @@ public final class RFBClient: @unchecked Sendable {
 
     /// Disconnect current session.
     public func disconnect() {
+        AppLogger.shared.info("Disconnecting session with \(host)", category: "Network")
         connection?.cancel()
         connection = nil
         readBuffer.removeAll()
@@ -95,16 +104,23 @@ public final class RFBClient: @unchecked Sendable {
 
     private func startHandshake() {
         state = .negotiatingVersion
+        AppLogger.shared.info("Negotiating RFB protocol version...", category: "RFB")
         // Expect 12 bytes of version: "RFB 003.008\n"
         readExact(12) { [weak self] data in
             guard let self = self, let data = data else { return }
-            guard let (_, _) = RFBDecoder.parseVersion(data) else {
+            guard let (_, minor) = RFBDecoder.parseVersion(data) else {
+                let rawStr = String(data: data, encoding: .utf8) ?? "<non-utf8>"
+                AppLogger.shared.error("Invalid RFB protocol header from server: \(rawStr)", category: "RFB")
                 self.handleFailure("Invalid RFB protocol header from server")
                 return
             }
 
+            let verStr = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            AppLogger.shared.info("Server banner: '\(verStr)' (RFB 3.\(minor))", category: "RFB")
+
             // Reply with RFB 003.008
             let versionReply = Data(RFBConstants.protocolVersion38.utf8)
+            AppLogger.shared.info("Sending client version: RFB 003.008", category: "RFB")
             self.sendData(versionReply) {
                 self.negotiateSecurity()
             }
@@ -113,6 +129,7 @@ public final class RFBClient: @unchecked Sendable {
 
     private func negotiateSecurity() {
         state = .authenticating
+        AppLogger.shared.info("Negotiating security mechanisms...", category: "Security")
         // Read 1 byte for number of security types
         readExact(1) { [weak self] countData in
             guard let self = self, let countData = countData else { return }
@@ -124,6 +141,7 @@ public final class RFBClient: @unchecked Sendable {
                     let reasonLen = Int(lenData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian })
                     self.readExact(reasonLen) { msgData in
                         let reason = msgData.flatMap { String(data: $0, encoding: .utf8) } ?? "Unknown server error"
+                        AppLogger.shared.error("Server rejected connection: \(reason)", category: "Security")
                         self.handleFailure("Server rejected connection: \(reason)")
                     }
                 }
@@ -134,7 +152,7 @@ public final class RFBClient: @unchecked Sendable {
             self.readExact(count) { typesData in
                 guard let typesData = typesData else { return }
                 let types = typesData.map { RFBConstants.SecurityType(rawValue: $0) }
-                
+                AppLogger.shared.info("Server offered \(types.count) security types: \(typesData.map { String($0) }.joined(separator: ", "))", category: "Security")
                 self.selectSecurityType(from: types)
             }
         }
@@ -142,31 +160,55 @@ public final class RFBClient: @unchecked Sendable {
 
     private func selectSecurityType(from types: [RFBConstants.SecurityType]) {
         if types.contains(.vncAuth) {
+            AppLogger.shared.info("Selecting VNC Authentication (Type 2)", category: "Security")
             // Select VNC Auth (2)
             sendData(Data([RFBConstants.SecurityType.vncAuth.rawValue])) {
                 self.performVNCAuth()
             }
         } else if types.contains(.none) {
+            AppLogger.shared.info("Selecting None Authentication (Type 1)", category: "Security")
             // Select None (1)
             sendData(Data([RFBConstants.SecurityType.none.rawValue])) {
                 self.handleSecurityResult(type: .none)
             }
         } else {
-            handleFailure("No compatible security type supported by server. Offered: \(types)")
+            let offeredStr = types.map { "\($0.rawValue)" }.joined(separator: ", ")
+            AppLogger.shared.error("No compatible security type. Offered: [\(offeredStr)]", category: "Security")
+            handleFailure("No compatible security type supported by server. Offered: [\(offeredStr)]")
         }
     }
 
     private func performVNCAuth() {
-        guard let pwd = password, !pwd.isEmpty else {
+        if let pwd = password, !pwd.isEmpty {
+            AppLogger.shared.info("Using configured password for VNC Auth", category: "Auth")
+            self.executeVNCChallenge(withPassword: pwd)
+        } else if let onRequest = self.onRequestPassword {
+            AppLogger.shared.info("No saved password. Requesting user input via modal sheet...", category: "Auth")
+            onRequest { [weak self] enteredPwd in
+                guard let self = self else { return }
+                guard let pwd = enteredPwd, !pwd.isEmpty else {
+                    AppLogger.shared.warning("User cancelled password prompt", category: "Auth")
+                    self.handleFailure("VNC Password required to connect")
+                    return
+                }
+                self.password = pwd
+                AppLogger.shared.info("Password entered, executing challenge...", category: "Auth")
+                self.executeVNCChallenge(withPassword: pwd)
+            }
+        } else {
+            AppLogger.shared.error("Server requires VNC password, but none was provided", category: "Auth")
             handleFailure("Server requires VNC password, but none was provided")
-            return
         }
+    }
 
+    private func executeVNCChallenge(withPassword pwd: String) {
         // Read 16-byte random challenge
         readExact(16) { [weak self] challengeData in
             guard let self = self, let challengeData = challengeData else { return }
+            AppLogger.shared.info("Received 16-byte DES challenge from server", category: "Auth")
             let response = VNCAuthCrypto.encryptChallenge(challengeData, password: pwd)
             self.sendData(response) {
+                AppLogger.shared.info("Sent encrypted DES response to server", category: "Auth")
                 self.handleSecurityResult(type: .vncAuth)
             }
         }
@@ -177,20 +219,24 @@ public final class RFBClient: @unchecked Sendable {
         readExact(4) { [weak self] resData in
             guard let self = self, let resData = resData else { return }
             guard let code = RFBDecoder.parseSecurityResult(resData) else {
+                AppLogger.shared.error("Failed to parse security result header", category: "Auth")
                 self.handleFailure("Failed to parse security result")
                 return
             }
 
             if code == 0 {
                 // Auth OK, proceed to ClientInit
+                AppLogger.shared.info("Authentication succeeded! Proceeding to ClientInit", category: "Auth")
                 self.sendClientInit()
             } else {
+                AppLogger.shared.error("Authentication rejected by server (code \(code))", category: "Auth")
                 // Auth failed, read reason if 3.8
                 self.readExact(4) { lenData in
                     if let lenData = lenData {
                         let len = Int(lenData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian })
                         self.readExact(len) { errData in
                             let errStr = errData.flatMap { String(data: $0, encoding: .utf8) } ?? "Authentication failed (incorrect password)"
+                            AppLogger.shared.error("Auth rejection detail: \(errStr)", category: "Auth")
                             self.handleFailure(errStr)
                         }
                     } else {
@@ -221,9 +267,12 @@ public final class RFBClient: @unchecked Sendable {
                 fullData.append(nameData)
 
                 guard let (serverInit, _) = RFBDecoder.parseServerInit(fullData) else {
+                    AppLogger.shared.error("Failed to parse ServerInit packet", category: "RFB")
                     self.handleFailure("Failed to parse ServerInit")
                     return
                 }
+
+                AppLogger.shared.info("ServerInit received: \(serverInit.width)x\(serverInit.height) '\(serverInit.name)', serverFormat bpp=\(serverInit.pixelFormat.bitsPerPixel) depth=\(serverInit.pixelFormat.depth)", category: "RFB")
 
                 // Update framebuffer size
                 self.framebuffer.resize(newWidth: Int(serverInit.width), newHeight: Int(serverInit.height))
@@ -235,20 +284,23 @@ public final class RFBClient: @unchecked Sendable {
     }
 
     private func setupSession(serverInit: RFBServerInit) {
-        // Request 32-bit standard BGRA format for high-speed iOS rendering
+        AppLogger.shared.info("Configuring session: 32-bit BGRA pixel format...", category: "RFB")
+        // Request 32-bit standard BGRA format for high-speed iOS / Metal rendering
         let pixelFormatData = RFBEncoder.encodeSetPixelFormat(.standardBGRA32)
         sendData(pixelFormatData)
 
-        // Set encodings: Raw, CopyRect, DesktopSize, Cursor
+        // Set encodings: Zlib, CopyRect, DesktopSize, Raw (do NOT request cursor to avoid cursor desync)
+        AppLogger.shared.info("Setting encodings: Zlib, CopyRect, DesktopSize, Raw...", category: "RFB")
         let encodingsData = RFBEncoder.encodeSetEncodings([
-            .raw,
+            .zlib,
             .copyRect,
             .desktopSize,
-            .cursor
+            .raw
         ])
         sendData(encodingsData)
 
         state = .connected
+        AppLogger.shared.info("Session state -> connected! Requesting initial full-frame update (0,0,\(framebuffer.width)x\(framebuffer.height))...", category: "RFB")
 
         // Send initial full screen update request
         requestUpdate(incremental: false)
@@ -270,10 +322,10 @@ public final class RFBClient: @unchecked Sendable {
             case RFBConstants.ServerMessageType.serverCutText.rawValue:
                 self.handleServerCutText()
             case RFBConstants.ServerMessageType.bell.rawValue:
-                // Beep received, loop continues
+                AppLogger.shared.info("Server sent bell (beep)", category: "RFB")
                 self.startMessageLoop()
             default:
-                // Unknown/unsupported message, log and loop
+                AppLogger.shared.warning("Unknown server message type: \(msgType)", category: "RFB")
                 self.startMessageLoop()
             }
         }
@@ -301,11 +353,36 @@ public final class RFBClient: @unchecked Sendable {
         readExact(12) { [weak self] rectHeaderData in
             guard let self = self, let rectHeaderData = rectHeaderData else { return }
             guard let header = RFBDecoder.parseRectangleHeader(rectHeaderData) else {
+                AppLogger.shared.error("Invalid rectangle header data", category: "RFB")
                 self.handleFailure("Invalid rectangle header")
                 return
             }
 
+
             switch header.encoding {
+            case .zlib:
+                // 4 bytes: length (UInt32 big endian)
+                self.readExact(4) { [weak self] lenData in
+                    guard let self = self, let lenData = lenData else { return }
+                    let compressedLength = Int(lenData.withUnsafeBytes { $0.load(as: UInt32.self).bigEndian })
+                    let expectedBytes = Int(header.width) * Int(header.height) * 4
+                    self.readExact(compressedLength) { [weak self] compressedData in
+                        guard let self = self, let compressedData = compressedData else { return }
+                        if let decompressed = self.zlibDecompressor.decompress(data: compressedData, expectedBytes: expectedBytes) {
+                            self.framebuffer.updateRect(
+                                x: Int(header.x),
+                                y: Int(header.y),
+                                width: Int(header.width),
+                                height: Int(header.height),
+                                rawData: decompressed
+                            )
+                        } else {
+                            AppLogger.shared.error("Zlib decompression failed for rect \(header.width)x\(header.height)", category: "RFB")
+                        }
+                        self.readRectangles(count: count - 1)
+                    }
+                }
+
             case .raw:
                 let pixelBytes = Int(header.width) * Int(header.height) * 4
                 self.readExact(pixelBytes) { pixelData in
@@ -339,11 +416,31 @@ public final class RFBClient: @unchecked Sendable {
 
             case .desktopSize:
                 // Screen resolution changed on remote Mac!
+                AppLogger.shared.info("Remote desktop resized to \(header.width)x\(header.height)", category: "RFB")
                 self.framebuffer.resize(newWidth: Int(header.width), newHeight: Int(header.height))
                 self.readRectangles(count: count - 1)
 
+            case .cursor:
+                // Cursor pseudo-encoding has: width * height * 4 pixel bytes + ((width + 7) / 8) * height mask bytes
+                let pixelBytes = Int(header.width) * Int(header.height) * 4
+                let maskBytes = ((Int(header.width) + 7) / 8) * Int(header.height)
+                let totalCursorBytes = pixelBytes + maskBytes
+                if totalCursorBytes > 0 {
+                    self.readExact(totalCursorBytes) { _ in
+                        self.readRectangles(count: count - 1)
+                    }
+                } else {
+                    self.readRectangles(count: count - 1)
+                }
+
+            case .lastRect:
+                self.onFrameUpdated?()
+                self.requestUpdate(incremental: true)
+                self.startMessageLoop()
+                return
+
             default:
-                // Skip unknown encoding data or finish
+                AppLogger.shared.warning("Unhandled encoding \(header.encoding.rawValue) for rect \(header.width)x\(header.height)", category: "RFB")
                 self.readRectangles(count: count - 1)
             }
         }
@@ -408,34 +505,59 @@ public final class RFBClient: @unchecked Sendable {
     }
 
     private func readExact(_ count: Int, completion: @escaping @Sendable (Data?) -> Void) {
+        // First check if readBuffer already contains enough bytes
+        if readBuffer.count >= count {
+            let chunk = readBuffer.prefix(count)
+            readBuffer.removeSubrange(0..<count)
+            completion(Data(chunk))
+            return
+        }
+
         guard let conn = connection else {
             completion(nil)
             return
         }
 
-        conn.receive(minimumIncompleteLength: count, maximumLength: count) { [weak self] content, _, isComplete, error in
+        let needed = count - readBuffer.count
+        let maxReceive = min(max(needed, 65536), 1048576) // cap at 1MB per receive
+        conn.receive(minimumIncompleteLength: 1, maximumLength: maxReceive) { [weak self] content, context, isComplete, error in
             guard let self = self else { return }
+            let receivedBytes = content?.count ?? 0
+            if receivedBytes > 0 {
+                self.readBuffer.append(content!)
+            }
+
+            if count > 100000 && self.readBuffer.count % 2097152 < receivedBytes {
+                let mb = Double(self.readBuffer.count) / (1024.0 * 1024.0)
+                let totalMb = Double(count) / (1024.0 * 1024.0)
+                DispatchQueue.main.async { [weak self] in
+                    self?.onDownloadProgress?(mb, totalMb)
+                }
+            }
+
             if let error = error {
                 self.handleFailure("Socket read error: \(error.localizedDescription)")
                 completion(nil)
                 return
             }
 
-            guard let data = content, data.count == count else {
-                if isComplete {
-                    self.handleFailure("Remote host closed connection")
-                } else {
-                    self.handleFailure("Received partial data (expected \(count) bytes)")
-                }
+            if self.readBuffer.count >= count {
+                let chunk = self.readBuffer.prefix(count)
+                self.readBuffer.removeSubrange(0..<count)
+                completion(Data(chunk))
+            } else if isComplete {
+                print("[DEBUG readExact] Connection marked isComplete=true, but only have \(self.readBuffer.count) of \(count) bytes")
+                self.handleFailure("Remote host closed connection (received \(self.readBuffer.count)/\(count) bytes)")
                 completion(nil)
-                return
+            } else {
+                // Buffer remaining bytes recursively
+                self.readExact(count, completion: completion)
             }
-
-            completion(data)
         }
     }
 
     private func handleFailure(_ message: String) {
+        AppLogger.shared.error("Session failed: \(message)", category: "RFB")
         state = .failed(message)
         connection?.cancel()
         connection = nil

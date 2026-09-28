@@ -1,115 +1,138 @@
 # TailScreens 📱🖥️
 
-> **像 Screens 一样优雅地在 iPhone 上通过 Tailscale 控制你的 Mac。**
+> **像 Screens 一样优雅地在 iPhone / iPad 与 Apple Silicon Mac 上通过 Tailscale 与局域网远程控制你的 Mac。**
 > 
-> A sleek, high-performance iOS remote desktop client designed specifically for macOS Screen Sharing over Tailscale, inspired by Edovia Screens.
+> A sleek, high-performance remote desktop client designed specifically for macOS Screen Sharing over Tailscale & Local Network, deeply inspired by Edovia Screens 5. Seamlessly runs on both **iOS** (iPhone & iPad) and **macOS** (Apple Silicon M1/M2/M3/M4).
 
 [![Swift](https://img.shields.io/badge/Swift-5.9%20%7C%206.0-orange.svg)](https://swift.org)
-[![Platform](https://img.shields.io/badge/Platforms-iOS%2017%2B%20%7C%20macOS%2014%2B-blue.svg)](https://developer.apple.com)
+[![Platform](https://img.shields.io/badge/Platforms-iOS%2017%2B%20%7C%20macOS%2014%2B%20(Apple%20Silicon)-blue.svg)](https://developer.apple.com)
+[![Renderer](https://img.shields.io/badge/Renderer-Metal%20(60%2F120%20FPS%20ProMotion)-purple.svg)](https://developer.apple.com/metal/)
 [![Protocol](https://img.shields.io/badge/Protocol-RFB%203.8%20(VNC)-green.svg)](https://datatracker.ietf.org/doc/html/rfc6143)
 [![License](https://img.shields.io/badge/License-MIT-lightgrey.svg)](LICENSE)
 
 ---
 
-## 🌟 核心特性 (Features)
+## 🌟 核心特性 (Features - 照着 Screens 抄作业复刻)
 
-### 1. 🌐 Tailscale 深度集成
-* **零配置发现**：集成 Tailscale REST API，自动拉取你的 Tailnet 下所有在线 Mac / PC 设备列表。
-* **点对点穿透**：通过 WireGuard 隧道直接与远端机器建立安全 TCP Socket，无需公网 IP，告别复杂的端口转发。
+### 1. 🚀 双端原生与极致丝滑 (iOS & Apple Silicon Mac)
+* **iOS / iPadOS 极致触控体验**：
+  * **虚拟触控板引擎**：植入 macOS 物理加速度曲线，支持单指轻敲左键、双指轻敲右键、长按拖拽、双指平滑自然滚动。
+  * **双击快速缩放**：双击任意区域在“适合屏幕 (Fit)”与“100% 原始点对点像素 (Actual Size)”之间丝滑弹簧切换。
+  * **触感反馈 (Tactile Haptics)**：每一次轻敲、点击与粘滞键锁定均提供触觉振动反馈 (`UIImpactFeedbackGenerator`)。
+  * **iPadOS Magic Keyboard & Trackpad 专属支持**：支持指针悬停跟踪 (`.onContinuousHover`) 与硬件鼠标。
+* **Apple Silicon (M系列) Mac 原生体验**：
+  * **原生物理鼠标无缝透传**：运行在 Mac 上时直接透传原生光标与悬停，无需虚拟光标圆圈，支持高精度惯性滚轮与中键。
+  * **系统级物理按键透传**：通过 AppKit `flagsChanged` 精准捕获 `Command`、`Option`、`Control`、`Shift`，热键无阻断透传至远端 Mac。
+  * **现代三栏式布局**：基于 `NavigationSplitView` 的现代 Mac 原生侧边栏管理。
 
-### 2. ⚡ 原生纯 Swift RFB 3.8 引擎
-* **基于 Network.framework**：利用 Apple 官方非阻塞网络栈 (`NWConnection`) 替代过时的 BSD Sockets，低延迟、低功耗。
-* **纯 Swift DES 认证**：内置标准 VNC Security Type 2 (DES Challenge-Response) 加密算法，零第三方外部依赖。
-* **增量脏矩形渲染**：严格按照 RFB 规范仅请求并解码屏幕变动区域 (Dirty Rects)，支持 32 位色彩快速上屏与高帧率渲染。
-* **动态分辨率适配**：支持 DesktopSize 扩展，远端 Mac 切换外接显示器或分辨率改变时动态自适应。
+### 2. ⚡ Metal 硬件加速渲染管线 (60 / 120 FPS ProMotion)
+* **GPU 直推渲染**：自主实现 Metal Shading Language (MSL) 动态着色管线，32位 BGRA 纹理直接上传至 Apple GPU，告别 CPU 绘图发热与掉帧。
+* **ProMotion 120Hz 支持**：支持 MacBook Pro Liquid Retina XDR 与 iPhone Pro 屏幕的 120Hz 高刷新率，画面顺滑如镜。
+* **实时性能诊断 HUD**：悬浮药丸胶囊实时监测并展示 **FPS 帧率**、**RTT 往返延迟 (ms)**、**吞吐带宽 (MB/s)** 与 Tailscale P2P 穿透状态。
 
-### 3. 🎯 媲美 Screens 的移动端交互体系
-* **虚拟触控板模式 (Virtual Trackpad)**：
-  * 采用 macOS 经典非线性加速度曲线，手指在小屏幕上微调精准、大范围滑动快速。
-  * **单指轻敲**：左键单击
-  * **双指轻敲**：右键 / 上下文菜单
-  * **单指长按**：窗口拖拽 / 区域框选
-  * **双指上下滑动**：自然滚轮平滑滚动
-* **直接触摸模式 (Direct Touch)**：点触即点击，配合双指缩放 (Pinch-to-zoom) 漫游画布。
+### 3. 🛡️ Screens 5 独占高阶特性深度复刻
+* **幕帘模式 (Curtain Mode)**：在外远程控制 Mac 时，一键锁定或黑屏实体显示器，防范路人窥屏，保护隐私；视口顶部显示胶囊隐私横幅。
+* **多显示器自由切换 (Multi-Display Switcher)**：远端 Mac 接入外接显示器或双屏时，智能识别并提供“主屏幕”、“副屏幕”或“全景拼合”一键瞬时切换，并在视口中精准执行坐标空间重映射。
+* **Mac 专属辅助键盘 (Mac Keyboard Toolbar)**：
+  * **三态粘滞修饰键 (Screens 独家体验)**：`⌘`、`⌥`、`⌃`、`⇧` 支持单敲生效下个键、双击永久锁定 (🔒)、再次点击解锁。
+  * **快捷输入抽屉 (Type to Mac)**：提供弹出手写/软键盘文字输入条，任意中英文字符、密码一键瞬传至远端 Mac。
+  * **F1 - F12 完整功能键栏** 与高频系统动作：聚焦搜索 (`⌘ Space`)、调度中心 (`⌃ ↑`)、App 切换 (`⌘ Tab`)、一键锁屏 (`⌃ ⌘ Q`)、显示桌面 (`⌘ F3`)、强制退出 (`⌥ ⌘ Esc`)。
+* **双向剪贴板无缝同步**：手机/客户端与远端 Mac 剪贴板文字一键秒级互通。
+* **桌面快照预览卡片 (Desktop Snapshots)**：每次连接实时截取并持久化远端桌面的高清缩略图，在计算机列表卡片中直观呈现。
 
-### 4. ⌨️ Mac 专属键盘扩展栏 (Mac Keyboard Bar)
-* **粘滞修饰键 (Sticky Modifiers)**：`⌘ Command`、`⌥ Option`、`⌃ Control`、`⇧ Shift`，支持单次触发或双击锁定。
-* **高频系统动作一键直达**：
-  * 🔍 **聚焦搜索 (Spotlight)**: `⌘ + Space`
-  * 🪟 **调度中心 (Mission Control)**: `⌃ + ↑`
-  * 📱 **应用切换器 (App Switcher)**: `⌘ + Tab`
-  * 🔒 **快速锁屏**: `⌃ + ⌘ + Q`
-  * `Esc`, `Tab`, `Return`, `Space`, 方向键 (`← ↑ ↓ →`)
-* **双向剪贴板同步**：手机端与 Mac 剪贴板一键互通。
+### 4. 🌐 局域网 Bonjour 自动发现与 Tailscale 远程穿透
+* **局域网 Bonjour 零配置发现**：通过 `Network.framework` `NWBrowser` 自动扫描局域网内的 Mac (`_rfb._tcp`)，打开 App 即可直接在“附近设备”中一键直连！
+* **网络唤醒 (Wake-on-LAN)**：支持向睡眠中的 Mac 发送标准 102 字节魔术数据包 (Magic Packet)，一键远程唤醒。
+* **Tailscale REST API 自动同步**：输入 Tailscale API Token，一键秒级获取并合并 Tailnet 内所有在线 Mac / PC 节点。
+* **WireGuard 点对点穿透**：无惧 NAT 阻隔与运营商内网，直接通过 `100.x.y.z` 建立端到端加密连接。
 
 ---
 
 ## 🏗️ 架构设计 (Architecture)
 
 ```
-┌────────────────────────────────────────────────────────┐
-│                   TailScreens iOS App                  │
-├────────────────────┬───────────────────────────────────┤
-│ UI 表现层          │ DeviceListView (设备卡片流 / 状态指示)   │
-│                    │ RemoteDesktopView (手势视口 / 浮动工具栏)│
-│                    │ MacKeyboardToolbar (Mac专用辅助按键) │
-├────────────────────┼───────────────────────────────────┤
-│ 交互引擎层         │ TrackpadEngine (虚拟触控板手势与加速度)   │
-│                    │ MacKeyMap (X11 KeySym 与 Mac 快捷键映射) │
-├────────────────────┼───────────────────────────────────┤
-│ 协议与网络层       │ RFBClient (RFB 3.8 状态机 & 消息循环)   │
-│                    │ RFBEncoder / RFBDecoder (二进制编解码)   │
-│                    │ VNCAuthCrypto (DES ECB 密码挑战加解密)  │
-│                    │ Framebuffer (脏矩形合成 & CGImage 渲染)  │
-├────────────────────┼───────────────────────────────────┤
-│ 数据与集成层       │ TailscaleClient (Tailnet 节点发现)       │
-│                    │ DeviceStore & KeychainStore (本地持久化) │
-└────────────────────┴───────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                   TailScreens (iOS & Apple Silicon Mac)                │
+├────────────────────┬───────────────────────────────────────────────────┤
+│ UI 表现层          │ DeviceListView (macOS 三栏 / iOS 响应式 / Bonjour 发现)│
+│                    │ RemoteDesktopView (双端视口渲染 / 双击缩放 / 悬停)   │
+│                    │ MacKeyboardToolbar (三态粘滞修饰键 / F1-F12 / 文字发送)│
+│                    │ PerformanceHUDView (FPS / 延迟 / 带宽诊断)           │
+├────────────────────┼───────────────────────────────────────────────────┤
+│ 渲染引擎层 (Metal) │ MetalScreenRenderer (MSL 60/120Hz 管线 / Apple GPU) │
+│                    │ MetalScreenView (MTKView 双端适配封装)             │
+│                    │ PerformanceMetrics (实时性能统计算法)               │
+├────────────────────┼───────────────────────────────────────────────────┤
+│ Screens 特性层     │ CurtainModeManager (防窥幕帘模式控制)               │
+│                    │ MultiDisplayManager (多显示器识别 / 坐标转换 / 裁剪)│
+│                    │ ThumbnailStore (桌面快照缩略图缓存)                 │
+├────────────────────┼───────────────────────────────────────────────────┤
+│ 交互与输入层       │ TrackpadEngine (iOS 虚拟触控板加速度 / 自然滚动)     │
+│                    │ MacNativeInputHandler (macOS flagsChanged / 物理键鼠)│
+│                    │ MacKeyMap (X11 KeySym 与 Mac 快捷键映射)            │
+├────────────────────┼───────────────────────────────────────────────────┤
+│ 协议与网络层       │ RFBClient (基于 Network.framework 流缓冲重组)       │
+│                    │ VNCAuthCrypto (纯 Swift DES 挑战应答)               │
+│                    │ Framebuffer (脏矩形合成与内存缓冲)                  │
+├────────────────────┼───────────────────────────────────────────────────┤
+│ 发现与网络工具     │ BonjourDiscoveryService (NWBrowser 局域网 Mac 发现) │
+│                    │ WakeOnLANService (102字节 Magic Packet 网络唤醒)   │
+│                    │ TailscaleClient (Tailnet 节点自动同步)              │
+│                    │ DeviceStore & KeychainStore (安全持久化)            │
+└────────────────────┴───────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🚀 快速上手 (Getting Started)
+## 🚀 编译与运行
 
-### 1. 准备你的 Mac 端
-1. 打开 Mac **系统设置 (System Settings)** > **通用 (General)** > **共享 (Sharing)**。
-2. 开启 **屏幕共享 (Screen Sharing)**。
-3. 点击右侧的 **ℹ️ 详情** 按钮 > 点击 **电脑设置... (Computer Settings)**。
-4. 勾选 **“VNC 显示程序可以使用密码控制屏幕”**，并设置一个密码。
-5. 确保 Mac 已加入你的 Tailscale Tailnet，记录 Mac 的 Tailscale IP（例如 `100.80.1.25`）。
-
-### 2. 编译与运行测试
-TailScreens 采用标准 Swift Package Manager 组织，无需安装任何额外三方包：
-
+### 1. 运行 macOS 原生桌面端
 ```bash
-# 克隆代码
-git clone https://github.com/chenpingan529/TailScreens.git
-cd TailScreens
-
-# 编译所有模块
-swift build
-
-# 运行自动化单元测试套件 (27/27 单元测试覆盖)
-swift test
+# 编译并直接启动 macOS 原生 App
+swift run TailScreensApp
 ```
 
-### 3. 打开项目
-直接双击根目录的 `Package.swift` 即可在 Xcode 中打开工程，选择你的 iPhone 或 iOS 模拟器直接编译运行。
+### 2. 运行 iPhone / iPad App
+```bash
+xcodegen generate --spec ios/project.yml --project ios
+open ios/TailScreensIOS.xcodeproj
+```
+在 Xcode 中选择 `TailScreensIOS` scheme 和 iPhone 模拟器或已签名的真机。`ios/project.yml` 会生成含启动画面和局域网权限声明的 iOS App target。
+
+### 3. 编译所有模块
+```bash
+swift build
+```
+
+### 4. 运行自动化测试
+```bash
+swift test
+# iPhone 模拟器 UI 测试：选择 TailScreensIOS scheme 后在 Xcode 中运行 Test
+```
+
+真实 Tailscale 首帧测试依赖可用的远端屏幕共享服务，不能用模拟服务器通过来代替。
 
 ---
 
-## 🧪 单元测试覆盖 (Unit Tests)
+## 🧪 自动化测试套件
 
-TailScreens 包含完备的单元测试，确保核心协议与数学计算 100% 严谨：
-
-| 测试模块 | 覆盖内容 | 结果 |
+| 模块 | 测试内容 | 状态 |
 | :--- | :--- | :---: |
-| `RFBPacketTests` | 协议版本解析、SecurityTypes、ServerInit、Pointer/Key/CutText 封包 | ✅ Passed |
-| `VNCAuthCryptoTests` | 密码 Bit Reversal 逆序变换、标准 DES ECB 块加解密向量、挑战应答 | ✅ Passed |
-| `TrackpadEngineTests` | 触控板加速度曲线、视口边缘裁剪、双指滚轮事件、手势点击 | ✅ Passed |
-| `MacKeyMapTests` | ASCII 码到 KeySym 映射、Mac 快捷键动作键序闭环校验 | ✅ Passed |
-| `TailscaleModelsTests`| Tailscale API JSON 响应解析、IPv4 提取、Mac OS 识别 | ✅ Passed |
-| `DeviceStoreTests` | 本地存储增删改查、Keychain 密码读写、Tailscale 节点智能合并 | ✅ Passed |
+| `MetalScreenRendererTests` | Apple Silicon GPU (M1/M2/M3/M4) Metal 渲染管线与着色器验证 | ✅ Passed |
+| `CurtainModeManagerTests` | 幕帘模式状态机与系统锁屏联动触发 | ✅ Passed |
+| `MultiDisplayManagerTests` | 单双显示器自适应检测、显示器切换计算与坐标空间重映射 | ✅ Passed |
+| `WakeOnLANTests` | MAC 地址格式多变体解析与 102 字节魔术数据包构造验证 | ✅ Passed |
+| `BonjourDiscoveryTests` | Bonjour 局域网服务发现与 `DiscoveredMac` 转换验证 | ✅ Passed |
+| `ThumbnailStoreTests` | 桌面高清缩略图内存与磁盘持久化缓存验证 | ✅ Passed |
+| `RFBStreamBufferTests` | TCP 分段流缓冲累加与大尺寸帧缓冲区组装测试 | ✅ Passed |
+| `StickyModifierTests` | 三态粘滞键 (Inactive -> ActiveOnce -> Locked) 状态机验证 | ✅ Passed |
+| `PerformanceMetricsTests` | FPS 滑动窗口均值计算、指数平滑往返延迟 (ms)、带宽计数 | ✅ Passed |
+| `RFBPacketTests` | 协议版本协商、SecurityTypes、ServerInit、Pointer/Key 封包 | ✅ Passed |
+| `VNCAuthCryptoTests` | 标准 DES ECB 加密测试向量 (NBS/NIST 标准)、Bit Reversal | ✅ Passed |
+| `TrackpadEngineTests` | 触控加速度非线性物理曲线、视口边缘裁剪、双指滚轮 | ✅ Passed |
+| `MacKeyMapTests` | ASCII 映射与全部 Mac 系统快捷键键序闭环 | ✅ Passed |
+| `TailscaleModelsTests`| Tailscale REST API 数据解析、IPv4 过滤提取、Mac 识别 | ✅ Passed |
+| `DeviceStoreTests` | 本地存储管理、Keychain 安全存储、Tailnet 节点状态合并 | ✅ Passed |
 
 ---
 

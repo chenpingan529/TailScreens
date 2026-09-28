@@ -34,6 +34,7 @@ public struct RemoteDevice: Codable, Identifiable, Equatable, Sendable {
     public var isOnline: Bool
     public var lastConnected: Date?
     public var isTailscaleNode: Bool
+    public var macAddress: String?
 
     public init(
         id: UUID = UUID(),
@@ -45,7 +46,8 @@ public struct RemoteDevice: Codable, Identifiable, Equatable, Sendable {
         username: String? = nil,
         isOnline: Bool = true,
         lastConnected: Date? = nil,
-        isTailscaleNode: Bool = false
+        isTailscaleNode: Bool = false,
+        macAddress: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -57,6 +59,7 @@ public struct RemoteDevice: Codable, Identifiable, Equatable, Sendable {
         self.isOnline = isOnline
         self.lastConnected = lastConnected
         self.isTailscaleNode = isTailscaleNode
+        self.macAddress = macAddress
     }
 
     /// Creates a RemoteDevice from a Tailscale node

@@ -11,3 +11,6 @@
 # App & Logs
 *.log
 .system_generated
+
+# Build outputs
+/build/

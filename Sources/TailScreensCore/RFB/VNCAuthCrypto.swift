@@ -59,7 +59,7 @@ public struct DESCipher {
         assert(block.count == 8, "DES block must be exactly 8 bytes")
         
         // Initial Permutation (IP)
-        var permuted = DESCipher.permute(block, table: DESCipher.initialPermutationTable, bitLength: 64)
+        let permuted = DESCipher.permute(block, table: DESCipher.initialPermutationTable, bitLength: 64)
         var left = Array(permuted[0..<4])
         var right = Array(permuted[4..<8])
 

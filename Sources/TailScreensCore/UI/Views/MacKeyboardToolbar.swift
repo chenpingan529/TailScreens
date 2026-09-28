@@ -1,8 +1,12 @@
 import SwiftUI
 
-/// Mac-tailored keyboard accessory toolbar with sticky modifiers and quick actions.
+/// Mac-tailored keyboard accessory toolbar with Screens-style 3-state sticky modifiers,
+/// quick actions, F1-F12 function row, and text transmission.
 public struct MacKeyboardToolbar: View {
     @ObservedObject public var viewModel: SessionViewModel
+    @State private var showingTextInput: Bool = false
+    @State private var showingFunctionKeys: Bool = false
+    @State private var textInput: String = ""
 
     public init(viewModel: SessionViewModel) {
         self.viewModel = viewModel
@@ -12,9 +16,68 @@ public struct MacKeyboardToolbar: View {
         VStack(spacing: 0) {
             Divider()
 
+            // Optional Quick Text Input Bar (Typing directly into Mac)
+            if showingTextInput {
+                HStack(spacing: 8) {
+                    Image(systemName: "keyboard")
+                        .foregroundColor(.secondary)
+
+                    TextField("Type or paste text to send to Mac...", text: $textInput)
+                        .textFieldStyle(.plain)
+                        .onSubmit {
+                            sendEnteredText()
+                        }
+
+                    if !textInput.isEmpty {
+                        Button {
+                            sendEnteredText()
+                        } label: {
+                            Text("Send")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(Color.accentColor, in: Capsule())
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    Button {
+                        withAnimation { showingTextInput = false }
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color.primary.opacity(0.04))
+                Divider()
+            }
+
+            // Optional F1 - F12 Function Key Row
+            if showingFunctionKeys {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(1...12, id: \.self) { num in
+                            ActionButton(title: "F\(num)") {
+                                let keySym = fKeySym(for: num)
+                                viewModel.sendKeyTap(keySym)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                }
+                .background(Color.primary.opacity(0.02))
+                Divider()
+            }
+
+            // Main Primary Keyboard Bar
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    // Shortcuts Menu
+                    // Actions Menu (Spotlight, App Switcher, Mission Control, etc.)
                     Menu {
                         ForEach(MacKeyMap.MacShortcut.allCases) { shortcut in
                             Button {
@@ -38,45 +101,45 @@ public struct MacKeyboardToolbar: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                     }
 
-                    // Sticky Modifier Keys
+                    // 3-State Sticky Modifiers (Screens style: tap once = next key, double tap = locked 🔒)
                     Group {
                         ModifierKeyButton(
-                            title: "⌘",
+                            symbol: "⌘",
                             label: "Cmd",
-                            isActive: viewModel.isCmdActive
+                            state: viewModel.cmdState
                         ) {
-                            viewModel.toggleCmd()
+                            viewModel.cycleCmd()
                         }
 
                         ModifierKeyButton(
-                            title: "⌥",
+                            symbol: "⌥",
                             label: "Opt",
-                            isActive: viewModel.isOptActive
+                            state: viewModel.optState
                         ) {
-                            viewModel.toggleOption()
+                            viewModel.cycleOption()
                         }
 
                         ModifierKeyButton(
-                            title: "⌃",
+                            symbol: "⌃",
                             label: "Ctrl",
-                            isActive: viewModel.isCtrlActive
+                            state: viewModel.ctrlState
                         ) {
-                            viewModel.toggleControl()
+                            viewModel.cycleControl()
                         }
 
                         ModifierKeyButton(
-                            title: "⇧",
+                            symbol: "⇧",
                             label: "Shift",
-                            isActive: viewModel.isShiftActive
+                            state: viewModel.shiftState
                         ) {
-                            viewModel.toggleShift()
+                            viewModel.cycleShift()
                         }
                     }
 
                     Divider()
                         .frame(height: 24)
 
-                    // Special Single-Tap Keys
+                    // Special Single-Tap Mac Keys
                     Group {
                         ActionButton(title: "esc") {
                             viewModel.sendKeyTap(MacKeyMap.escape)
@@ -121,6 +184,38 @@ public struct MacKeyboardToolbar: View {
                     Divider()
                         .frame(height: 24)
 
+                    // F1-F12 Toggle Button
+                    Button {
+                        withAnimation { showingFunctionKeys.toggle() }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "slider.horizontal.3")
+                            Text("Fn")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 7)
+                        .background(showingFunctionKeys ? Color.accentColor : Color.secondary.opacity(0.12))
+                        .foregroundColor(showingFunctionKeys ? .white : .primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+
+                    // Direct Text Input Drawer Toggle
+                    Button {
+                        withAnimation { showingTextInput.toggle() }
+                    } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "character.cursor.ibeam")
+                            Text("Type")
+                                .font(.system(size: 12, weight: .semibold))
+                        }
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 7)
+                        .background(showingTextInput ? Color.accentColor : Color.secondary.opacity(0.12))
+                        .foregroundColor(showingTextInput ? .white : .primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+
                     // Clipboard Paste to Mac
                     Button {
                         viewModel.syncClipboardToMac()
@@ -142,29 +237,85 @@ public struct MacKeyboardToolbar: View {
             .background(.bar)
         }
     }
+
+    private func sendEnteredText() {
+        guard !textInput.isEmpty else { return }
+        viewModel.sendTextString(textInput)
+        textInput = ""
+    }
+
+    private func fKeySym(for num: Int) -> UInt32 {
+        switch num {
+        case 1: return MacKeyMap.f1
+        case 2: return MacKeyMap.f2
+        case 3: return MacKeyMap.f3
+        case 4: return MacKeyMap.f4
+        case 5: return MacKeyMap.f5
+        case 6: return MacKeyMap.f6
+        case 7: return MacKeyMap.f7
+        case 8: return MacKeyMap.f8
+        case 9: return MacKeyMap.f9
+        case 10: return MacKeyMap.f10
+        case 11: return MacKeyMap.f11
+        case 12: return MacKeyMap.f12
+        default: return MacKeyMap.f1
+        }
+    }
 }
 
+/// Screens-style 3-state modifier key button: Inactive, Active Once, Locked 🔒
 private struct ModifierKeyButton: View {
-    let title: String
+    let symbol: String
     let label: String
-    let isActive: Bool
+    let state: SessionViewModel.ModifierState
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: 3) {
-                Text(title)
+                Text(symbol)
                     .font(.system(size: 14, weight: .bold))
                 Text(label)
                     .font(.system(size: 11, weight: .semibold))
+
+                if state == .locked {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 8))
+                }
             }
             .padding(.horizontal, 9)
             .padding(.vertical, 7)
-            .background(isActive ? Color.accentColor : Color.secondary.opacity(0.12))
-            .foregroundColor(isActive ? .white : .primary)
+            .background(backgroundColor)
+            .foregroundColor(foregroundColor)
             .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .stroke(state == .activeOnce ? Color.accentColor : Color.clear, lineWidth: 1.5)
+            )
         }
         .buttonStyle(.plain)
+    }
+
+    private var backgroundColor: Color {
+        switch state {
+        case .inactive:
+            return Color.secondary.opacity(0.12)
+        case .activeOnce:
+            return Color.accentColor.opacity(0.2)
+        case .locked:
+            return Color.accentColor
+        }
+    }
+
+    private var foregroundColor: Color {
+        switch state {
+        case .inactive:
+            return .primary
+        case .activeOnce:
+            return .accentColor
+        case .locked:
+            return .white
+        }
     }
 }
 
