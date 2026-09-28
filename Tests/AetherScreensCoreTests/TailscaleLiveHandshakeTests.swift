@@ -2,13 +2,26 @@ import XCTest
 import Network
 @testable import AetherScreensCore
 
+/// Talks to a real Mac with Screen Sharing on. Skipped unless a host is given, e.g.
+/// `AETHERSCREENS_LIVE_HOST=100.x.y.z swift test --filter TailscaleLiveHandshakeTests`
 final class TailscaleLiveHandshakeTests: XCTestCase {
 
-    let targetHost = "100.64.0.3"
-    let targetPort: UInt16 = 5900
+    var targetHost = ""
+    var targetPort: UInt16 = 5900
+
+    override func setUpWithError() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let host = env["AETHERSCREENS_LIVE_HOST"], !host.isEmpty else {
+            throw XCTSkip("Set AETHERSCREENS_LIVE_HOST to run live Screen Sharing tests")
+        }
+        targetHost = host
+        if let port = env["AETHERSCREENS_LIVE_PORT"].flatMap(UInt16.init) {
+            targetPort = port
+        }
+    }
 
     func testLiveTailscaleHandshakeIfReachable() throws {
-        let expectation = XCTestExpectation(description: "RFB handshake with Tailscale node 100.64.0.3")
+        let expectation = XCTestExpectation(description: "RFB handshake with \(targetHost)")
 
         let nwHost = NWEndpoint.Host(targetHost)
         let nwPort = NWEndpoint.Port(rawValue: targetPort)!

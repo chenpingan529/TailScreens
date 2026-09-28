@@ -110,7 +110,11 @@ swift test
 # iPhone 模拟器 UI 测试：选择 AetherScreensIOS scheme 后在 Xcode 中运行 Test
 ```
 
-真实 Tailscale 首帧测试依赖可用的远端屏幕共享服务，不能用模拟服务器通过来代替。
+真实 Tailscale 首帧测试依赖可用的远端屏幕共享服务，不能用模拟服务器通过来代替。默认跳过，需要时指定被控 Mac 的地址运行：
+
+```bash
+AETHERSCREENS_LIVE_HOST=100.x.y.z swift test --filter TailscaleLiveHandshakeTests
+```
 
 ---
 

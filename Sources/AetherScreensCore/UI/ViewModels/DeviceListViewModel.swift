@@ -25,21 +25,6 @@ public final class DeviceListViewModel: ObservableObject {
         self.bonjourService = bonjourService
         self.devices = store.devices
 
-        // Seed default 100.64.0.3 Tailscale Mac if not present
-        if !self.devices.contains(where: { $0.host == "100.64.0.3" }) {
-            let tailscaleMac = RemoteDevice(
-                name: "Tailscale Mac (100.64.0.3)",
-                host: "100.64.0.3",
-                port: RFBConstants.defaultPort,
-                deviceType: .mac,
-                authMethod: .vncPassword,
-                isOnline: true,
-                isTailscaleNode: true
-            )
-            store.addDevice(tailscaleMac)
-            self.devices = store.devices
-        }
-
         setupBonjourBindings()
     }
 
